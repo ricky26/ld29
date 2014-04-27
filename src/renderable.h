@@ -10,6 +10,8 @@ public:
 
 	virtual void render() {}
 	virtual void update(Update& _update) {}
+
+	virtual void renderLight() {}
 };
 
 #endif //_RENDERABLE_H_

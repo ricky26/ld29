@@ -1,7 +1,8 @@
 #include <stdexcept>
 #include <iostream>
 #include <SDL2/SDL.h>
-#include <SDL2/SDL_opengl.h>
+#include <SDL2/SDL_image.h>
+#include "opengl.h"
 #include "event_dispatch.h"
 #include "game.h"
 
@@ -11,11 +12,15 @@ struct SDLState
 	{
 		if(SDL_Init(SDL_INIT_EVERYTHING) == -1)
 			throw std::runtime_error("failed to initialise SDL");
+
+		if(IMG_Init(IMG_INIT_PNG) == -1)
+			throw std::runtime_error("failed to initialise SDL_image");
 	}
 	
 
 	~SDLState()
 	{
+		IMG_Quit();
 		SDL_Quit();
 	}
 };
@@ -29,6 +34,10 @@ int main(int _argc, char *_argv[])
 		DispatchStack &dispatch = DispatchStack::get();
 		Game game;
 		Update update;
+
+		glEnable(GL_TEXTURE_2D);
+		glDisable(GL_DEPTH_TEST);
+		glEnable(GL_BLEND);
 
 		update.ticksLast = SDL_GetPerformanceCounter();
 		update.tickFrequency = SDL_GetPerformanceFrequency(); // Should really refresh this.

@@ -40,4 +40,46 @@ private:
 	b2Body *m_body;
 };
 
+class JointHandle
+{
+public:
+	inline JointHandle()
+		: m_world(nullptr)
+		, m_joint(nullptr)
+	{}
+
+	inline JointHandle(JointHandle const& _b)
+		: m_world(_b.m_world)
+		, m_joint(nullptr)
+	{}
+	
+	inline JointHandle(JointHandle &&_b)
+		: m_world(_b.m_world)
+		, m_joint(_b.m_joint)
+	{
+		_b.m_joint = nullptr;
+	}
+
+	inline ~JointHandle() { destroy(); }
+
+	inline bool valid() const { return m_joint != nullptr; }
+
+	b2World *world() { return m_world; }
+	b2Joint *joint() const { return m_joint; }
+
+	inline b2Joint *operator ->() const { return joint(); }
+
+	void destroy();
+	void reset(b2World &_world, b2Joint *_body);
+
+private:
+	b2World *m_world;
+	b2Joint *m_joint;
+};
+
+float physicsToWorld(float);
+float worldToPhysics(float);
+b2Vec2 physicsToWorld(b2Vec2 const&);
+b2Vec2 worldToPhysics(b2Vec2 const&);
+
 #endif //_PHYSICS_H_

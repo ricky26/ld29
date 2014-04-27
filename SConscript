@@ -6,12 +6,14 @@ src = [
     'build/main.cpp',
     'build/window.cpp',
     'build/event_dispatch.cpp',
+    'build/fs.cpp',
     
     'build/physics.cpp',
 
     'build/game.cpp',
     'build/renderable.cpp',
     'build/game_entity.cpp',
+    'build/light.cpp',
 ]
 
 Env.Program('out/bin/ld29', 

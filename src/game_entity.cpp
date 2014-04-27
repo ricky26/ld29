@@ -1,6 +1,6 @@
 #include "game_entity.h"
 #include <iostream>
-#include <SDL2/SDL_opengl.h>
+#include "opengl.h"
 
 namespace Entities
 {
@@ -14,8 +14,10 @@ namespace Entities
 			bodyDef.type = b2_dynamicBody;
 		b2Body *body = _world.CreateBody(&bodyDef);
 
+		b2Vec2 size = worldToPhysics(b2Vec2(_size.x*0.5f, _size.y*0.5f));
+
 		b2PolygonShape groundBox;
-		groundBox.SetAsBox(_size.x*0.5f, _size.y*0.5f);
+		groundBox.SetAsBox(size.x, size.y);
 
 		b2FixtureDef fixtureDef;
 		fixtureDef.shape = &groundBox;
@@ -29,7 +31,7 @@ namespace Entities
 
 	void Box::render()
 	{
-		b2Vec2 vec = m_body->GetPosition();
+		b2Vec2 vec = physicsToWorld(m_body->GetPosition());
 		float angle = m_body->GetAngle();
 
 		b2Vec2 verts[] = {
@@ -57,7 +59,10 @@ namespace Entities
 
 		for(int i = 0; i < sizeof(verts)/sizeof(verts[0]); i++)
 		{
-			glColor3f(0, 1, 0);
+			if(m_illuminated)
+				glColor4f(0, 1, 0, 1);
+			else
+				glColor4f(0.5, 0.5, 0, 1);
 			glVertex2f(vec.x + verts[i].x, vec.y + verts[i].y);
 		}
 
