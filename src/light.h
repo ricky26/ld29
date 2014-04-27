@@ -25,6 +25,11 @@ namespace Entities
 
 		inline BodyHandle const& body() const { return m_body; }
 
+		inline bool isActive() const { return m_active; }
+		inline void setActive(bool _a) { m_active = _a; }
+
+		inline void setScale(float _s) { m_scale = _s; }
+
 		inline void setGame(Game *_game) { m_game = _game; }
 		inline void setWorld(b2World *_world) { m_world = _world; }
 
@@ -43,10 +48,12 @@ namespace Entities
 
 		Positions m_positions;
 
+		float m_scale;
 		bool m_obscured;
+		bool m_active;
 
 		SDL::Texture m_texLight;
-		SDL::Texture m_texObj;
+		GLint m_texObj;
 	};
 }
 

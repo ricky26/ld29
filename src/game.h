@@ -7,6 +7,7 @@
 #include "renderable.h"
 #include "opengl.h"
 #include "resources.h"
+#include "game_entity.h"
 
 class b2MouseJoint;
 class b2Body;
@@ -36,15 +37,20 @@ public:
 
 	virtual void onIdle() override;
 
+	void addRenderable(Renderable *_r) { m_renderables.push_back(Renderables::value_type(_r)); }
+
 	// Input
 	virtual bool onMouseMotion(const SDL_MouseMotionEvent &_event) override;
 	virtual bool onMouseDown(const SDL_MouseButtonEvent &_event) override;
 	virtual bool onMouseUp(const SDL_MouseButtonEvent &_event) override;
 	virtual bool onMouseWheel(const SDL_MouseWheelEvent &_event) override;
 
+	virtual bool onKeyDown(const SDL_KeyboardEvent &tEvent) override;
+
 	// ResourceManager
 
 	virtual SDL::Texture loadTexture(std::string const& _path) override;
+	virtual GLuint loadGLTexture(std::string const& _path) override;
 
 private:
 	Window m_window;
@@ -52,6 +58,7 @@ private:
 	// Physics
 	float m_physTime;
 	b2World m_world;
+	b2Vec2 m_lastPos;
 
 	// Scene
 	SDL::Texture m_background;
@@ -61,6 +68,7 @@ private:
 	// Grab
 	b2Body*			m_ground;
 	Renderable*		m_grabbed;
+	b2Body*			m_grabbedBody;
 	b2MouseJoint* 	m_grab;
 	bool m_isRotating;
 	bool m_wasFixed;
@@ -69,6 +77,9 @@ private:
 	Entities::Light* m_defaultLight;
 	GLuint m_lightTexture;
 	GLuint m_lightFB;
+
+	// Factory
+	Entities::Factory m_factory;
 };
 
 #endif //_GAME_H_

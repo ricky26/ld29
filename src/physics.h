@@ -23,6 +23,13 @@ public:
 		_b.m_body = nullptr;
 	}
 
+	inline BodyHandle(b2World &_world, b2Body* _body)
+		: m_world(nullptr)
+		, m_body(nullptr)
+	{
+		reset(_world, _body);
+	}
+
 	inline ~BodyHandle() { destroy(); }
 
 	inline bool valid() const { return m_body != nullptr; }
@@ -30,10 +37,21 @@ public:
 	b2World *world() { return m_world; }
 	b2Body *body() const { return m_body; }
 
-	inline b2Body *operator ->() const { return body(); }
-
 	void destroy();
 	void reset(b2World &_world, b2Body *_body);
+
+	inline b2Body *operator ->() const { return body(); }
+
+	inline BodyHandle &operator =(BodyHandle &&_b)
+	{
+		destroy();
+
+		m_world = _b.m_world;
+		m_body = _b.m_body;
+		_b.m_body = nullptr;
+
+		return *this;
+	}
 
 private:
 	b2World *m_world;
@@ -68,6 +86,17 @@ public:
 	b2Joint *joint() const { return m_joint; }
 
 	inline b2Joint *operator ->() const { return joint(); }
+
+	inline JointHandle &operator =(JointHandle &&_b)
+	{
+		destroy();
+
+		m_world = _b.m_world;
+		m_joint = _b.m_joint;
+		_b.m_joint = nullptr;
+
+		return *this;
+	}
 
 	void destroy();
 	void reset(b2World &_world, b2Joint *_body);

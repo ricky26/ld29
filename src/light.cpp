@@ -39,6 +39,9 @@ namespace
 
 		virtual bool ReportFixture(b2Fixture *_fixture)
 		{
+			if(!_fixture->TestPoint(position))
+				return true;
+
 			if(ignore && (_fixture->GetBody() == ignore))
 				return true;
 
@@ -46,6 +49,7 @@ namespace
 			return false;
 		}
 
+		b2Vec2 position;
 		b2Body* ignore;
 		b2Fixture* fixture;
 	};
@@ -53,10 +57,20 @@ namespace
 
 namespace Entities
 {
-	static const float g_maxDist = 1024.f;
+	static const float g_maxDist = 2048.f;
+
+	static void illuminate(Renderable *r)
+	{
+		if(Box *box = dynamic_cast<Box*>(r))
+			box->setIlluminated(true);
+		else if(Light *light = dynamic_cast<Light*>(r))
+			light->setActive(true);
+	}
 
 	Light::Light()
 		: m_world(nullptr)
+		, m_scale(1)
+		, m_active(false)
 	{
 		m_positions.resize(720);
 	}
@@ -69,48 +83,49 @@ namespace Entities
 		
 		b2Body *body = m_world->CreateBody(&bodyDef);
 
+		const float r = 50 * m_scale;
+		const float pr = worldToPhysics(r);
+
 		b2CircleShape shape;
-		shape.m_radius = worldToPhysics(50);
-		body->CreateFixture(&shape, 1);
+		shape.m_radius = pr;
+
+		b2FixtureDef fixtureDef;
+		fixtureDef.shape = &shape;
+		fixtureDef.density = 1.5f;
+		fixtureDef.friction = 0.1f;
+		body->CreateFixture(&fixtureDef);
 
 		m_body.reset(*m_world, body);
 
 		m_texLight = m_game->loadTexture("textures/lightsource.png");
-		m_texObj = m_game->loadTexture("textures/bulb.png");
+		//m_texObj = m_game->loadTexture("textures/bulb.png");
+		m_texObj = m_game->loadGLTexture("textures/bulb.png");
 	}
 	
 	void Light::update(Update &_update)
 	{
+		if(!m_active)
+		{
+			m_obscured = false;
+			return;
+		}
+
 		const int passes = m_positions.size();
 		const b2Vec2 pos = physicsToWorld(m_body->GetPosition());
-
-		if(m_game)
-		{
-			for(auto &item : m_game->renderables())
-			{
-				if(Entities::Box *box = dynamic_cast<Entities::Box*>(item.get()))
-				{
-					box->setIlluminated(false);
-				}
-			}
-		}
 		
 		b2Vec2 firstPos, lastPos;
 
 		PickObject picker;
 		picker.ignore = m_body.body();
+		picker.position = m_body->GetPosition();
 
 		b2AABB point;
 		point.lowerBound = point.upperBound = worldToPhysics(pos);
 		if(m_world)
 			m_world->QueryAABB(&picker, point);
-		if(picker.fixture)
+		if(false && picker.fixture)
 		{
-			if(Entities::Box *box = dynamic_cast<Entities::Box*>(
-				   reinterpret_cast<Renderable*>(
-					   picker.fixture->GetBody()->GetUserData())))
-				box->setIlluminated(true);
-			
+			illuminate(reinterpret_cast<Renderable*>(picker.fixture->GetBody()->GetUserData()));
 			m_obscured = true;
 			return;
 		}
@@ -121,11 +136,11 @@ namespace Entities
 			const float angle = (i / float(passes-1)) * M_PI * 2.f;
 
 			b2Vec2 worstPos = {
-				pos.x + cosf(angle)*g_maxDist*2, 
-				pos.y + sinf(angle)*g_maxDist*2 };
+				pos.x + cosf(angle)*g_maxDist*m_scale*2, 
+				pos.y + sinf(angle)*g_maxDist*m_scale*2 };
 			b2Vec2 endPos = {
-				pos.x + cosf(angle)*g_maxDist, 
-				pos.y + sinf(angle)*g_maxDist };
+				pos.x + cosf(angle)*g_maxDist*m_scale, 
+				pos.y + sinf(angle)*g_maxDist*m_scale };
 
 			MinRayCast caster;
 			caster.ignore = m_body.body();
@@ -136,12 +151,8 @@ namespace Entities
 
 			if(caster.fixture)
 			{
+				illuminate(reinterpret_cast<Renderable*>(caster.fixture->GetBody()->GetUserData()));
 				m_positions[i].body = caster.fixture->GetBody();
-
-				if(Entities::Box *box = dynamic_cast<Entities::Box*>(
-					   reinterpret_cast<Renderable*>(
-						   caster.fixture->GetBody()->GetUserData())))
-					box->setIlluminated(true);
 			}
 			else
 			{
@@ -157,29 +168,43 @@ namespace Entities
 	void Light::render()
 	{
 		const b2Vec2 pos = physicsToWorld(m_body->GetPosition());
+		const float angle = m_body->GetAngle();
 		const int passes = 128;
-		const float r = 50.f;
+		const float r = 50.f*m_scale;
 
-		glBegin(GL_TRIANGLES);
-		for(int i = 0; i <= passes; i++)
+		float w=128*m_scale, h=128*m_scale;
+		//SDL_GL_BindTexture(m_texObj.get(), &w, &h);
+		glBindTexture(GL_TEXTURE_2D, m_texObj);
+		glBegin(GL_QUADS);
+
+		float uw=1, uh=1;
+		
+		b2Vec2 pts[] = {
+			{ -w*0.5f, -h*0.5f }, { 0, uh },
+			{ w*0.5f, -h*0.5f }, { uw, uh },
+			{ w*0.5f, h*0.5f }, { uw, 0 },
+			{ -w*0.5f, h*0.5f }, { 0, 0 },
+		};
+
+		const float cosA = cosf(angle);
+		const float sinA = sinf(angle);
+		for(int i = 0; i < sizeof(pts)/(2*sizeof(pts[0])); i++)
 		{
-			const float angle = (i / float(passes-1)) * M_PI * 2;
-			const float prevAngle = ((i-1) / float(passes-1)) * M_PI * 2;
+			b2Vec2 lpos = pts[i*2];
+			b2Vec2 uv = pts[i*2 + 1];
+
+			b2Vec2 xpos = {
+				cosA*lpos.x - sinA*lpos.y,
+				sinA*lpos.x + cosA*lpos.y };
 			
-			const float x = cosf(angle) * r;
-			const float y = sinf(angle) * r;
-
-			const float pX = cosf(prevAngle) * r;
-			const float pY = sinf(prevAngle) * r;
-
-			glColor3f(1, 1, 0);
-			glVertex2f(pos.x, pos.y);
-			glColor3f(1, 1, 0);
-			glVertex2f(pos.x + pX, pos.y + pY);
-			glColor3f(1, 1, 0);
-			glVertex2f(pos.x + x, pos.y + y);
+			glTexCoord2f(uv.x, uv.y);
+			glColor3f(1,1,1);
+			glVertex2f(pos.x + xpos.x, pos.y + xpos.y);
 		}
+
 		glEnd();
+		//SDL_GL_UnbindTexture(m_texObj.get());
+		glBindTexture(GL_TEXTURE_2D, 0);
 	}
 
 	void Light::renderLight()
@@ -189,12 +214,14 @@ namespace Entities
 		const float r = 1;
 		const float g = 1;
 		const float b = 0.95f;
-		const float a = 0.85f;
 
-		if(!m_obscured)
+		float texW, texH;
+		SDL_GL_BindTexture(m_texLight.get(), &texW, &texH);
+
+		if(m_active && !m_obscured)
 		{
-			float texW, texH;
-			SDL_GL_BindTexture(m_texLight.get(), &texW, &texH);
+			const float a = 0.85f;
+
 			glBegin(GL_TRIANGLES);
 			for(int i = 0; i <= m_positions.size(); i++)
 			{
@@ -204,7 +231,7 @@ namespace Entities
 				b2Vec2 lastPos = pos + lastt.position;
 				b2Vec2 thisPos = pos + thist.position;
 
-				const float fDistMult = g_maxDist * 2.f;
+				const float fDistMult = g_maxDist * m_scale * 2.f;
 
 				glTexCoord2f(0.5f*texW, 0.5f*texH);
 				glColor4f(r, g, b, a);
@@ -252,7 +279,30 @@ namespace Entities
 				}
 			}
 			glEnd();
-			SDL_GL_UnbindTexture(m_texLight.get());
 		}
+
+		if(!m_obscured)
+		{
+			const float sightRange = m_active ? 1.f : 0.1f;
+			const float a = m_active ? 1 : 0.3f;
+
+			glBegin(GL_QUADS);
+
+			glTexCoord2f(0, texH);
+			glColor4f(r, g, b, a);
+			glVertex2f(pos.x - texW*0.5f*m_scale*sightRange, pos.y - texH*0.5f*m_scale*sightRange);
+			glTexCoord2f(texW, texH);
+			glColor4f(r, g, b, a);
+			glVertex2f(pos.x + texW*0.5f*m_scale*sightRange, pos.y - texH*0.5f*m_scale*sightRange);
+			glTexCoord2f(texW, 0);
+			glColor4f(r, g, b, a);
+			glVertex2f(pos.x + texW*0.5f*m_scale*sightRange, pos.y + texH*0.5f*m_scale*sightRange);
+			glTexCoord2f(0, 0);
+			glColor4f(r, g, b, a);
+			glVertex2f(pos.x - texW*0.5f*m_scale*sightRange, pos.y + texH*0.5f*m_scale*sightRange);
+			
+			glEnd();
+		}
+		SDL_GL_UnbindTexture(m_texLight.get());
 	}
 }
